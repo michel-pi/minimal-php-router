@@ -9,6 +9,9 @@ $router->addRoute("/ping", "/Ping.php");
 
 $router->addRoute("/", "/Index.php"); // must be last (default)
 
-$router->handleRequest();
+if (!$router->handleRequest())
+{
+    $router->throw();
+}
 
 ?>

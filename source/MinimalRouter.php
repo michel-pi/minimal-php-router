@@ -1,5 +1,74 @@
 <?php
 
+class Router
+{
+    private $Routes;
+
+    public $BaseRoute;
+
+    public $Request;
+    public $Response;
+
+    public function __construct($route = false)
+    {
+        if ($route === false)
+        {
+            $this->BaseRoute = rtrim(__DIR__, "/") . "/controller";
+        }
+        else
+        {
+            $this->BaseRoute = rtrim($route, "/");
+        }
+
+        $this->Routes = array();
+
+        $this->Request = new Request();
+        $this->Response = new Response();
+    }
+
+    public function addRoute($pattern, $controller)
+    {
+        $this->Routes[] = new Route($pattern, $controller);
+    }
+
+    public function handleRequest()
+    {
+        $uri = parse_url($this->Request->Uri, PHP_URL_PATH);
+
+        for ($i = 0; $i < count($this->Routes); $i++)
+        {
+            $route = $this->Routes[$i];
+
+            if ($route->matches($uri))
+            {
+                include_once $this->BaseRoute . $route->Controller;
+
+                $controller = new $route->Class();
+
+                $controller->execute($this->Request, $this->Response);
+
+                $this->submit();
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function submit()
+    {
+        $this->Response->submit();
+    }
+
+    public function throw($errorCode = 404, $text = "")
+    {
+        $this->Response->ResponseCode = $errorCode;
+        $this->Response->Data = $text;
+        $this->submit();
+    }
+}
+
 class Route
 {
     private $IsCompiled;
@@ -43,66 +112,6 @@ class Route
         $this->IsCompiled = true;
 
         return $result;
-    }
-}
-
-class Router
-{
-    private $Routes;
-
-    public $BaseRoute;
-
-    public $Request;
-    public $Response;
-
-    public function __construct($route = false)
-    {
-        if ($route === false)
-        {
-            $this->BaseRoute = rtrim(__DIR__, "/") . "/controller";
-        }
-        else
-        {
-            $this->BaseRoute = rtrim($route, "/");
-        }
-
-        $this->Routes = array();
-    }
-
-    public function handleRequest()
-    {
-        $this->Request = new Request();
-        $this->Response = new Response();
-
-        $uri = parse_url($this->Request->Uri, PHP_URL_PATH);
-
-        for ($i = 0; $i < count($this->Routes); $i++)
-        {
-            $route = $this->Routes[$i];
-
-            if ($route->matches($uri))
-            {
-                include_once $this->BaseRoute . $route->Controller;
-
-                $controller = new $route->Class();
-
-                $controller->execute($this->Request, $this->Response);
-
-                $this->Response->submit();
-
-                return;
-            }
-        }
-
-        $this->Response->ResponseCode = 400;
-        $this->Response->Data = "invalid path";
-
-        $this->Response->submit();
-    }
-
-    public function addRoute($pattern, $controller)
-    {
-        $this->Routes[] = new Route($pattern, $controller);
     }
 }
 
