@@ -4,10 +4,10 @@ class Index
 {
     public function execute(&$request, &$response)
     {
-        $response->ResponseCode = 200;
+        $response->StatusCode = 200;
         $response->Data = "Hello World";
 
-        $response->enableCaching();
+        $response->enable_caching();
     }
 }
 

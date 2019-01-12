@@ -26,12 +26,12 @@ class Router
         $this->Response = new Response();
     }
 
-    public function addRoute($pattern, $controller)
+    public function add_route($pattern, $controller)
     {
         $this->Routes[] = new Route($pattern, $controller);
     }
 
-    public function handleRequest()
+    public function handle_request()
     {
         $uri = parse_url($this->Request->Uri, PHP_URL_PATH);
 
@@ -63,7 +63,7 @@ class Router
 
     public function throw($errorCode = 404, $text = "")
     {
-        $this->Response->ResponseCode = $errorCode;
+        $this->Response->StatusCode = $errorCode;
         $this->Response->Data = $text;
         $this->submit();
     }
@@ -86,27 +86,31 @@ class Route
 
     public function matches($subject)
     {
-        $regex = $this->compilePattern();
+        $regex = $this->compile_pattern();
 
         return preg_match($regex, $subject);
     }
 
-    private function compilePattern()
+    private function compile_pattern()
     {
         if ($this->IsCompiled) return $this->Pattern;
 
         $result = $this->Pattern;
 
-        $result = rtrim($result, "/");
-
+        // escape?
         $result = str_replace("/", "\\/", $result);
+
+        $result = str_replace(":index", "(^$|^\/$|^\/index$|\/index\.html|\/index\.php)", $result);
+
+        $result = str_replace(":lower", "[a-z]+", $result);
+        $result = str_replace(":upper", "[A-Z]+", $result);
 
         $result = str_replace(":i", "[0-9]+", $result);
         $result = str_replace(":a", "[0-9A-Za-z]+", $result);
         $result = str_replace(":h", "[0-9A-Fa-f]+", $result);
         $result = str_replace(":c", "[a-zA-Z0-9+_\-\.]+", $result);
 
-        $result = "@" . $result . "[\\/]?$@i";
+        $result = "@" . $result . "@i";
 
         $this->Pattern = $result;
         $this->IsCompiled = true;
@@ -131,13 +135,13 @@ class Request
 
     public function __construct()
     {
-        $this->RemoteAddress = $this->getRemoteAddress();
+        $this->RemoteAddress = $this->get_remote_address();
 
         $this->Uri = $_SERVER['REQUEST_URI'];
         $this->Method = $_SERVER['REQUEST_METHOD'];
         $this->UserAgent = $_SERVER['HTTP_USER_AGENT'];
 
-        $this->Headers = $this->getHttpHeaders();
+        $this->Headers = $this->get_http_headers();
         $this->Cookies = $_COOKIE;
 
         if ($this->Method == "GET")
@@ -154,7 +158,7 @@ class Request
         }
     }
 
-    public function getRawData()
+    public function get_raw_data()
     {
         if ($this->Method == "POST")
         {
@@ -167,7 +171,7 @@ class Request
         
     }
 
-    public function getData($name)
+    public function get_data($name)
     {
         if (!empty($this->Data) && is_array($this->Data) && array_key_exists($name, $this->Data))
         {
@@ -179,7 +183,7 @@ class Request
         }
     }
 
-    public function getHeader($name)
+    public function get_header($name)
     {
         if (!empty($this->Headers) && is_array($this->Headers) && array_key_exists($name, $this->Headers))
         {
@@ -191,7 +195,7 @@ class Request
         }
     }
 
-    public function getCookie($name)
+    public function get_cookie($name)
     {
         if (!empty($this->Cookies) && is_array($this->Cookies) && array_key_exists($name, $this->Cookies))
         {
@@ -203,7 +207,7 @@ class Request
         }
     }
 
-    private function getHttpHeaders()
+    private function get_http_headers()
     {
         $headers = array();
 
@@ -219,7 +223,7 @@ class Request
         return $headers;
     }
 
-    private function getRemoteAddress()
+    private function get_remote_address()
     {
         // cloudflare support
         // if (isset($_SERVER["HTTP_CF_CONNECTING_IP"]))
@@ -236,7 +240,7 @@ class Response
     private $Caching;
     private $CanSubmit;
 
-    public $ResponseCode;
+    public $StatusCode;
     public $ContentType;
 
     public $Headers;
@@ -247,7 +251,7 @@ class Response
     {
         $this->CanSubmit = true;
 
-        $this->ResponseCode = 200;
+        $this->StatusCode = 200;
         $this->ContentType = "text/plain";
         $this->Data = "";
 
@@ -255,7 +259,7 @@ class Response
         $this->Caching = array();
     }
 
-    public function addHeader($header, $value = false)
+    public function add_header($header, $value = false)
     {
         if ($value === false)
         {
@@ -268,7 +272,7 @@ class Response
         
     }
 
-    public function addData($key, $value = false)
+    public function add_data($key, $value = false)
     {
         if (!is_array($this->Data))
         {
@@ -285,7 +289,7 @@ class Response
         }
     }
 
-    public function setCookie($name, $value)
+    public function set_cookie($name, $value)
     {
         if ($value === false)
         {
@@ -297,7 +301,7 @@ class Response
         }
     }
 
-    public function enableCaching($time = 86400, $isPublic = true)
+    public function enable_caching($time = 86400, $isPublic = true)
     {
         if ($isPublic)
         {
@@ -309,7 +313,7 @@ class Response
         }
     }
 
-    public function disableCaching()
+    public function disable_caching()
     {
         $this->Caching = ["Expires: 0", "Cache-Control: no-cache, no-store, must-revalidate, post-check=0, pre-check=0", "Pragma: no-cache"];
     }
@@ -320,7 +324,7 @@ class Response
         {
             $this->CanSubmit = false;
 
-            http_response_code($this->ResponseCode);
+            http_response_code($this->StatusCode);
 
             header("Content-Type: " . $this->ContentType);
 
@@ -342,7 +346,7 @@ class Response
 
             if (is_array($this->Data) && count($this->Data) > 0)
             {
-                if ($this->isSequentialArray($this->Data))
+                if ($this->is_sequential_array($this->Data))
                 {
                     for ($i = 0; $i < count($this->Data) - 1; $i++)
                     {
@@ -384,7 +388,7 @@ class Response
         }
     }
 
-    private function isSequentialArray($array)
+    private function is_sequential_array($array)
     {
         if (!empty($array) || !is_array($array) || count($array) == 0)
         {
