@@ -572,7 +572,7 @@ class ContentType
 
     public static function IsJson($mime_type)
     {
-        return self::endswitch($mime_type, "json");
+        return self::endsWith($mime_type, "json");
     }
 
     public static function IsBinary($mime_type)
