@@ -4,7 +4,7 @@ class Router
 {
     private $Routes;
 
-    public $BaseRoute;
+    public $BasePath;
 
     public $Request;
     public $Response;
@@ -13,11 +13,11 @@ class Router
     {
         if ($route === false)
         {
-            $this->BaseRoute = rtrim(__DIR__, "/") . "/controller";
+            $this->BasePath = rtrim(__DIR__, "/") . "/controller";
         }
         else
         {
-            $this->BaseRoute = rtrim($route, "/");
+            $this->BasePath = rtrim($route, "/");
         }
 
         $this->Routes = array();
@@ -33,7 +33,7 @@ class Router
 
     public function handle_request()
     {
-        $uri = parse_url($this->Request->Uri, PHP_URL_PATH);
+        $uri = $this->Request->Uri;
 
         for ($i = 0; $i < count($this->Routes); $i++)
         {
@@ -41,9 +41,9 @@ class Router
 
             if ($route->matches($uri))
             {
-                include_once $this->BaseRoute . $route->Controller;
+                include_once $this->BasePath . $route->Controller;
 
-                $controller = new $route->Class();
+                $controller = new $route->ClassName();
 
                 $controller->execute($this->Request, $this->Response);
 
@@ -75,13 +75,13 @@ class Route
 
     public $Pattern;
     public $Controller;
-    public $Class;
+    public $ClassName;
 
     public function __construct($pattern, $controller)
     {
         $this->Pattern = $pattern;
         $this->Controller = $controller;
-        $this->Class = pathinfo($controller, PATHINFO_FILENAME);
+        $this->ClassName = pathinfo($controller, PATHINFO_FILENAME);
     }
 
     public function matches($subject)
@@ -96,9 +96,6 @@ class Route
         if ($this->IsCompiled) return $this->Pattern;
 
         $result = $this->Pattern;
-
-        // escape?
-        $result = str_replace("/", "\\/", $result);
 
         $result = str_replace(":index", "(^$|^\/$|^\/index$|\/index\.html|\/index\.php)", $result);
 
@@ -116,6 +113,49 @@ class Route
         $this->IsCompiled = true;
 
         return $result;
+    }
+}
+
+class Template
+{
+    private $BasePath;
+
+    private $Html;
+
+    public function __construct($templates)
+    {
+        $this->BasePath = $templates;
+    }
+
+    public function load($template)
+    {
+        $this->Html = file_get_contents($this->join_paths($this->BasePath, $template));
+    }
+
+    public function replace($old, $new, $limit = -1)
+    {
+        $this->Html = preg_replace("@" . preg_quote($old, "@") . "@i", $new, $this->Html, $limit);
+    }
+
+    public function assign($name, $value)
+    {
+        $this->Html = preg_replace("@%" . preg_quote($name, "@") . "%@i", $value, $this->Html);
+    }
+
+    public function display()
+    {
+        return $this->Html;
+    }
+
+    private function join_paths()
+    {
+        $paths = array();
+    
+        foreach (func_get_args() as $arg) {
+            if ($arg !== '') { $paths[] = $arg; }
+        }
+    
+        return preg_replace('#/+#','/',join('/', $paths));
     }
 }
 
@@ -251,8 +291,8 @@ class Response
     {
         $this->CanSubmit = true;
 
-        $this->StatusCode = 200;
-        $this->ContentType = "text/plain";
+        $this->StatusCode = StatusCode::OKAY;
+        $this->ContentType = ContentType::TEXT_PLAIN;
         $this->Data = "";
 
         $this->Headers = array();
@@ -399,6 +439,160 @@ class Response
         $filter = array_filter($keys, "is_string");
         
         return count($filter) == 0;
+    }
+}
+
+class StatusCode
+{
+    // informational
+    const CONTINUE = 100;
+    const SWITCHING_PROTOCOLS = 101;
+    const PROCESSING = 102;
+    const EARLY_HINTS = 103;
+
+    // success
+    const OKAY = 200;
+    const CREATED = 201;
+    const ACCEPTED = 202;
+    const NON_AUTHORATIVE_INFORMATION = 203;
+    const NO_CONTENT = 204;
+    const RESET_CONTENT = 205;
+    const PARTIAL_CONTENT = 206;
+    const MULTI_STATUS = 207;
+    const ALREADY_REPORTED = 208;
+    const IM_USED = 226;
+
+    // redirection
+    const MULTIPLE_CHOICES = 300;
+    const MOVED_PERMANENTLY = 301;
+    const FOUND = 302;
+    const MOVED_TEMPORARILY = 302;
+    const SEE_OTHER = 303;
+    const NOT_MODIFIED = 304;
+    const USE_PROXY = 305;
+    const SWITCH_PROXY = 306;
+    const TEMPORARY_REDIRECT = 307;
+    const PERMANENT_REDIRECT = 308;
+
+    // client error
+    const BAD_REQUEST = 400;
+    const UNAUTHORIZED = 401;
+    const PAYMENT_REQUIRED = 402;
+    const FORBIDDEN = 403;
+    const NOT_FOUND = 404;
+    const METHOD_NOT_ALLOWED = 405;
+    const NOT_ACCEPTABLE = 406;
+    const PROXY_AUTHENTICATION_REQUIRED = 407;
+    const REQUEST_TIMEOUT = 408;
+    const CONFLICT = 409;
+    const GONE = 410;
+    const LENGTH_REQUIRED = 411;
+    const PRECONDITION_FAILED = 412;
+    const PAYLOAD_TO_LARGE = 413;
+    const URI_TOO_LONG = 414;
+    const UNSUPPORTED_MEDIA_TYPE = 415;
+    const RANGE_NOT_SATISFIABLE = 416;
+    const EXCEPTION_FAILED = 417;
+    const IM_A_TEAPOT = 418;
+    const MISDIRECT_REQUEST = 421;
+    const UNPROCESSABLE_ENTITY = 422;
+    const LOCKED = 423;
+    const FAILED_DEPENDENCY = 424;
+    const UPGRADE_REQUIRED = 426;
+    const PRECONDITION_REQUIRED = 428;
+    const TOO_MANY_REQUESTS = 429;
+    const REQUEST_HEADER_FIELDS_TOO_LARGE = 431;
+    const UNAVAILABLE_FOR_LEGAL_REASONS = 451;
+
+    // server error
+    const INTERNAL_SERVER_ERROR = 500;
+    const NOT_IMPLEMENTED = 501;
+    const BAD_GATEWAY = 502;
+    const SERVICE_UNAVAILABLE = 503;
+    const GATEWAY_TIMEOUT = 504;
+    const HTTP_VERSION_NOT_SUPPORTED = 505;
+    const VARIANT_ALSO_NEGOTIATES = 506;
+    const INSUFFICIENT_STORAGE = 507;
+    const LOOP_DETECTED = 508;
+    const NOT_EXTENDED = 510;
+    const NETWORK_AUTHENTIOCATION_REQUIRED = 511;
+}
+
+class ContentType
+{
+    const AUDIO_AAC = "audio/aac";
+    const AUDIO_MP3 = "audio/mpeg";
+    const AUDIO_WAV = "audio/wav";
+    const AUDIO_WEBM = "audio/webm";
+
+    const APPLICATION_OCTET_STREAM = "application/octet-stream";
+    const APPLICATION_PDF = "application/pdf";
+    const APPLICATION_JSON = "application/json";
+
+    const IMAGE_BMP = "image/bmp";
+    const IMAGE_GIF = "image/gif";
+    const IMAGE_ICO = "image/x-icon";
+    const IMAGE_JPG = "image/jpeg";
+    const IMAGE_PNG = "image/png";
+    const IMAGE_SVG = "image/svg+xml";
+
+    const VIDEO_MPEG = "video/mpeg";
+    const VIDEO_WEBM = "video/webm";
+
+    const TEXT_PLAIN = "text/plain";
+    const TEXT_CSS = "text/css";
+    const TEXT_CSV = "text/csv";
+    const TEXT_HTML = "text/html";
+    const TEXT_JAVASCRIPT = "text/javascript";
+
+    public static function FromFile($path)
+    {
+        return mime_content_type($path);
+    }
+
+    public static function IsAudio($mime_type)
+    {
+        return self::startsWith($mime_type, "audio");
+    }
+
+    public static function IsText($mime_type)
+    {
+        return self::startsWith($mime_type, "text");
+    }
+
+    public static function IsImage($mime_type)
+    {
+        return self::startsWith($mime_type, "image");
+    }
+
+    public static function IsVideo($mime_type)
+    {
+        return self::startsWith($mime_type, "video");
+    }
+
+    public static function IsJson($mime_type)
+    {
+        return self::endswitch($mime_type, "json");
+    }
+
+    public static function IsBinary($mime_type)
+    {
+        return self::startsWith($mime_type, "application") && !self::IsJson($mime_type);
+    }
+
+    public static function IsGif($mime_type)
+    {
+        return self::IsImage($mime_type) && self::endsWith($mime_type, "gif");
+    }
+
+    private static function startsWith($left, $right)
+    {
+        return preg_match('/^' . preg_quote($right, '/') . '/i', $left);
+    }
+
+    private static function endsWith($left, $right)
+    {
+        return preg_match('/' . preg_quote($right, '/') . '$/i', $left);
     }
 }
 
