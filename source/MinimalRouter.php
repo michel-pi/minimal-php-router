@@ -179,7 +179,15 @@ class Request
 
         $this->Uri = $_SERVER['REQUEST_URI'];
         $this->Method = $_SERVER['REQUEST_METHOD'];
-        $this->UserAgent = $_SERVER['HTTP_USER_AGENT'];
+
+        if (array_key_exists("HTTP_USER_AGENT", $_SERVER))
+        {
+            $this->UserAgent = $_SERVER['HTTP_USER_AGENT'];
+        }
+        else
+        {
+            $this->UserAgent = "";
+        }
 
         $this->Headers = $this->get_http_headers();
         $this->Cookies = $_COOKIE;
